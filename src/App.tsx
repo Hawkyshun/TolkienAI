@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ScrollText, Send, Sparkles } from 'lucide-react';
+import { sendMessage } from './lib/gemini';
 
 interface Message {
   content: string;
@@ -14,6 +15,7 @@ function App() {
     }
   ]);
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -26,37 +28,51 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
-    // Add user message
-    setMessages(prev => [...prev, { content: input, isBot: false }]);
-    
-    // Clear input
+    const userMessage = input.trim();
     setInput('');
+    setMessages(prev => [...prev, { content: userMessage, isBot: false }]);
+    setIsLoading(true);
 
-    // Simulate AI response (replace this with actual Gemini API call)
-    setTimeout(() => {
+    try {
+      const response = await sendMessage(userMessage);
+      if (response) {
+        setMessages(prev => [...prev, {
+          content: response,
+          isBot: true
+        }]);
+      } else {
+        throw new Error('Empty response received');
+      }
+    } catch (error) {
+      console.error('Error:', error);
       setMessages(prev => [...prev, {
-        content: "Bu bir örnek yanıttır. Gerçek uygulamada, bu yanıt Gemini API'den gelecektir.",
+        content: "Üzgünüm, şu anda cevap veremiyorum. Lütfen tekrar deneyin.",
         isBot: true
       }]);
-    }, 1000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[url('https://images.unsplash.com/photo-1635705163669-3c4b19c86eb0?auto=format&fit=crop&q=80')] bg-cover bg-center">
-      <div className="min-h-screen bg-black/40 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8 flex flex-col h-screen max-w-4xl">
+    <div className="min-h-screen bg-cover bg-center bg-fixed"
+         style={{ backgroundImage: 'url("https://tse1.mm.bing.net/th?id=OIG4.pB9h79zqWONu2inySKMu&pid=ImgGn")' }}>
+      <div className="min-h-screen bg-black/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-8 flex flex-col h-screen">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-yellow-400 mb-2 font-serif">
+            <h1 className="text-4xl font-bold text-yellow-400 font-serif mb-2">
               TolkienAI
             </h1>
-            <p className="text-gray-300 text-lg">Orta Dünya'daki Rehberiniz</p>
+            <p className="text-gray-300 italic">
+              "Even the smallest person can change the course of the future."
+            </p>
           </div>
 
           {/* Chat Container */}
-          <div className="flex-1 bg-black/40 rounded-lg p-4 mb-4 overflow-y-auto">
+          <div className="flex-1 bg-black/40 rounded-lg p-4 overflow-y-auto mb-4 border border-yellow-900/30">
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div
@@ -66,13 +82,13 @@ function App() {
                   <div
                     className={`max-w-[80%] rounded-lg p-4 ${
                       message.isBot
-                        ? 'bg-gray-800/80 text-gray-100'
-                        : 'bg-yellow-900/80 text-yellow-100'
+                        ? 'bg-gray-800/90 text-gray-100'
+                        : 'bg-yellow-900/90 text-gray-100'
                     }`}
                   >
                     {message.isBot && (
                       <div className="flex items-center mb-2">
-                        <Sparkles className="w-4 h-4 text-yellow-400 mr-2" />
+                        <ScrollText className="w-5 h-5 text-yellow-400 mr-2" />
                         <span className="text-yellow-400 font-semibold">TolkienAI</span>
                       </div>
                     )}
@@ -80,31 +96,38 @@ function App() {
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800/90 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+                      <span className="text-gray-400">TolkienAI düşünüyor...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
 
           {/* Input Form */}
-          <form onSubmit={handleSubmit} className="relative">
+          <form onSubmit={handleSubmit} className="flex gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Konuş dostum ve gir..."
-              className="w-full bg-gray-800/80 text-gray-100 rounded-lg pl-4 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-yellow-500 placeholder-gray-400"
+              placeholder="Orta Dünya hakkında bir soru sorun..."
+              className="flex-1 bg-gray-800/90 text-gray-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-yellow-900/30"
+              disabled={isLoading}
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-yellow-400 hover:text-yellow-300 transition-colors p-2"
+              disabled={isLoading}
+              className="bg-yellow-900/90 text-yellow-400 px-4 py-2 rounded-lg hover:bg-yellow-800/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Send className="w-6 h-6" />
+              <Send className="w-5 h-5" />
             </button>
           </form>
-
-          {/* Footer */}
-          <div className="text-center mt-4 text-gray-400 text-sm">
-            <p>Gemini AI tarafından desteklenmektedir • Tolkien Estate ile bağlantısı yoktur</p>
-          </div>
         </div>
       </div>
     </div>
